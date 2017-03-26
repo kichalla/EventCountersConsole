@@ -1,0 +1,51 @@
+{
+  "EventCounterIntervalInSeconds": 1,
+  "EventSources": [
+    {
+      "name": "Microsoft-AspNetCore-Hosting",
+      "eventCounters": [
+        "Request",
+        "SuccessfulRequest",
+        "FailedRequest",
+        "RequestExecutionTime"
+      ]
+    }
+  ],
+  "Columns": [
+    {
+      "name": "Name",
+      "show": true,
+      "width": 20
+    },
+    {
+      "name": "Mean",
+      "show": true,
+      "width": 20
+    },
+    {
+      "name": "StandardDeviation",
+      "show": true,
+      "width": 20
+    },
+    {
+      "name": "Count",
+      "show": true,
+      "width": 20
+    },
+    {
+      "name": "Min",
+      "show": true,
+      "width": 20
+    },
+    {
+      "name": "Max",
+      "show": true,
+      "width": 20
+    },
+    {
+      "name": "IntervalSec",
+      "show": true,
+      "width": 20
+    }
+  ]
+}
