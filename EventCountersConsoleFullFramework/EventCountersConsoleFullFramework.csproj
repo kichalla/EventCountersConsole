@@ -44,12 +44,10 @@
   <ItemGroup>
     <Compile Include="EventCounterConfiguration.cs" />
     <Compile Include="Models\Cell.cs" />
-    <Compile Include="Models\ColumnBorderCell.cs" />
-    <Compile Include="Models\HeaderDataCell.cs" />
-    <Compile Include="Models\RowDataCell.cs" />
+    <Compile Include="Models\BorderCell.cs" />
+    <Compile Include="Models\DataCell.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Models\RowBorderCell.cs" />
     <Compile Include="Models\Table.cs" />
   </ItemGroup>
   <ItemGroup>

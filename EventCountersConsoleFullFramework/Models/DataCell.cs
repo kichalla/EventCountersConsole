@@ -2,9 +2,9 @@
 
 namespace EventCountersConsole
 {
-    public class ColumnBorderCell : Cell
+    public class DataCell : Cell
     {
-        public ColumnBorderCell(string data) : base(data, width: 1)
+        public DataCell(string data, int width) : base(data, width)
         {
         }
 
@@ -13,8 +13,17 @@ namespace EventCountersConsole
             WriteData(Data);
         }
 
+        public void UpdateData(string data)
+        {
+            WriteData(data);
+        }
+
         private void WriteData(string data)
         {
+            if (data.Length < Width)
+            {
+                data += new string(' ', Width - data.Length);
+            }
             Console.SetCursorPosition(CursorColumnIndex, CursorRowIndex);
             Console.Write(data);
         }

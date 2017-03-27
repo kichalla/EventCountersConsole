@@ -2,16 +2,16 @@
 
 namespace EventCountersConsole
 {
-    public class RowBorderCell : Cell
+    public class BorderCell : Cell
     {
-        public RowBorderCell(string data, int width) : base(data, width)
+        public BorderCell(string data) : base(data, data.Length)
         {
         }
 
         protected override void Draw()
         {
             Console.SetCursorPosition(CursorColumnIndex, CursorRowIndex);
-            Console.Write(new string(Data[0], Width));
+            Console.Write(Data);
         }
     }
 }

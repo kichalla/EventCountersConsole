@@ -12,7 +12,11 @@ namespace EventCountersConsole
     class Program
     {
         private static Table _table;
-        private static EventCounterConfiguration _configuration = null;
+        private static EventCounterConfiguration _config = null;
+
+        // A map of the event counter to the row represents to give fast access when trying to update
+        // the cells when a trace event gets fired.
+        private static Dictionary<string, List<DataCell>> _eventCounters = null;
 
         static void Main(string[] args)
         {
@@ -46,15 +50,17 @@ namespace EventCountersConsole
                 using (var jsonTextReader = new JsonTextReader(streamReader))
                 {
                     var jsonserializer = new JsonSerializer();
-                    _configuration = jsonserializer.Deserialize<EventCounterConfiguration>(jsonTextReader);
+                    _config = jsonserializer.Deserialize<EventCounterConfiguration>(jsonTextReader);
                 }
             }
 
-            _configuration.Columns = _configuration.Columns
+            _config.Columns = _config.Columns
                 .Where(column => column.Show)
                 .ToList();
-            _configuration.EventSources.Sort();
-            foreach (var eventSource in _configuration.EventSources)
+
+            _config.EventSources.Sort();
+
+            foreach (var eventSource in _config.EventSources)
             {
                 eventSource.EventCounters.Sort();
             }
@@ -63,27 +69,31 @@ namespace EventCountersConsole
         static void CreateTableSkeleton()
         {
             _table = new Table();
+            _eventCounters = new Dictionary<string, List<DataCell>>();
 
-            foreach (var eventSource in _configuration.EventSources)
+            foreach (var eventSource in _config.EventSources)
             {
                 // add one row for each counter we want to monitor
                 foreach (var eventCounter in eventSource.EventCounters)
                 {
-                    var eventCounterRow = new List<RowDataCell>();
-                    foreach (var column in _configuration.Columns)
+                    var eventCounterRow = new List<DataCell>();
+                    foreach (var column in _config.Columns)
                     {
-                        RowDataCell dataCell;
+                        DataCell dataCell;
                         if (column.Name == "Name")
                         {
-                            dataCell = new RowDataCell(eventCounter, column.Width);
+                            dataCell = new DataCell(eventCounter, column.Width);
                         }
                         else
                         {
-                            dataCell = new RowDataCell(string.Empty, column.Width);
+                            dataCell = new DataCell(string.Empty, column.Width);
                         }
                         eventCounterRow.Add(dataCell);
                     }
                     _table.Rows.Add(eventCounterRow);
+
+                    var key = $"{eventSource.Name}-{eventCounter}";
+                    _eventCounters.Add(key, eventCounterRow);
                 }
             }
         }
@@ -96,39 +106,42 @@ namespace EventCountersConsole
             DrawTable(tbl);
         }
 
-        static void AddTableHeader(Table tbl)
+        static void AddTableHeader(Table table)
         {
             // Example:
             // ============================
             // |Name   |Age   |Occupation |
             // ============================
-            tbl.Rows.Add(CreateBorderRow("=", "="));
+            table.Rows.Add(CreateBorderRow('=', '='));
             var headerDataRow = new List<Cell>();
-            for (var i = 0; i < _configuration.Columns.Count; i++)
+            for (var i = 0; i < _config.Columns.Count; i++)
             {
                 if (i == 0)
                 {
-                    headerDataRow.Add(new ColumnBorderCell("|"));
+                    headerDataRow.Add(new BorderCell("|"));
                 }
-                headerDataRow.Add(new HeaderDataCell(_configuration.Columns[i].Name, _configuration.Columns[i].Width));
-                headerDataRow.Add(new ColumnBorderCell("|"));
+                headerDataRow.Add(new DataCell(_config.Columns[i].Name, _config.Columns[i].Width));
+                headerDataRow.Add(new BorderCell("|"));
             }
-            tbl.Rows.Add(headerDataRow);
-            tbl.Rows.Add(CreateBorderRow("=", "="));
+            table.Rows.Add(headerDataRow);
+            table.Rows.Add(CreateBorderRow('=', '='));
         }
 
-        static List<Cell> CreateBorderRow(string rowCharacter = "-", string columnCharacter = "|")
+        static List<Cell> CreateBorderRow(char rowCharacter = '-', char columnCharacter = '|')
         {
+            string columnString = null;
+            string rowString = null;
             var borderRow = new List<Cell>();
-            for (var i = 0; i < _configuration.Columns.Count; i++)
+            for (var i = 0; i < _config.Columns.Count; i++)
             {
                 if (i == 0)
                 {
-                    borderRow.Add(new ColumnBorderCell(columnCharacter));
+                    rowString = new string(rowCharacter, _config.Columns[i].Width);
+                    columnString = columnCharacter.ToString();
+                    borderRow.Add(new BorderCell(columnString));
                 }
-
-                borderRow.Add(new RowBorderCell(rowCharacter, _configuration.Columns[i].Width));
-                borderRow.Add(new ColumnBorderCell(columnCharacter));
+                borderRow.Add(new BorderCell(rowString));
+                borderRow.Add(new BorderCell(columnCharacter.ToString()));
             }
             return borderRow;
         }
@@ -142,10 +155,10 @@ namespace EventCountersConsole
                 {
                     if (i == 0)
                     {
-                        dataRow.Add(new ColumnBorderCell("|"));
+                        dataRow.Add(new BorderCell("|"));
                     }
-                    dataRow.Add((RowDataCell)rowCells.ElementAt(i));
-                    dataRow.Add(new ColumnBorderCell("|"));
+                    dataRow.Add(rowCells.ElementAt(i));
+                    dataRow.Add(new BorderCell("|"));
                 }
                 tbl.Rows.Add(dataRow);
                 tbl.Rows.Add(CreateBorderRow());
@@ -169,9 +182,9 @@ namespace EventCountersConsole
         static void RegisterEventListener(TraceEventSession userSession)
         {
             var options = new TraceEventProviderOptions();
-            options.AddArgument("EventCounterIntervalSec", _configuration.EventCounterIntervalInSeconds.ToString());
+            options.AddArgument("EventCounterIntervalSec", _config.EventCounterIntervalInSeconds.ToString());
 
-            foreach (var eventSource in _configuration.EventSources)
+            foreach (var eventSource in _config.EventSources)
             {
                 userSession.EnableProvider(eventSource.Name, TraceEventLevel.Always, (ulong)EventKeywords.None, options);
 
@@ -182,13 +195,13 @@ namespace EventCountersConsole
                     var payload = traceEvent.PayloadValue(0) as IDictionary<string, object>;
                     if (payload != null)
                     {
-                        var eventCounterIndex = eventSource.EventCounters.FindIndex(n => n == payload["Name"].ToString());
-                        var eventCounter = _table.Rows[eventCounterIndex] as List<RowDataCell>;
+                        var key = $"{traceEvent.ProviderName}-{payload["Name"]}";
+                        var eventCounterRow = _eventCounters[key];
 
-                        for (var i = 0; i < _configuration.Columns.Count; i++)
+                        for (var i = 0; i < _config.Columns.Count; i++)
                         {
-                            var rowDataCell = eventCounter[i];
-                            rowDataCell.UpdateData(payload[_configuration.Columns[i].Name]?.ToString());
+                            var rowDataCell = eventCounterRow[i];
+                            rowDataCell.UpdateData(payload[_config.Columns[i].Name]?.ToString());
                         }
                     }
                 });
