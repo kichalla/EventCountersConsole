@@ -11,18 +11,15 @@ namespace EventCountersConsole
 {
     class Program
     {
-        private static Table _table;
         private static EventCounterConfiguration _config = null;
 
-        // A map of the event counter to the row represents to give fast access when trying to update
+        // A map of the event counter to the row it represents to give fast access when trying to update
         // the cells when a trace event gets fired.
         private static Dictionary<string, List<DataCell>> _eventCounters = null;
 
         static void Main(string[] args)
         {
             GetConfiguration();
-
-            CreateTableSkeleton();
 
             DrawTable();
 
@@ -66,44 +63,12 @@ namespace EventCountersConsole
             }
         }
 
-        static void CreateTableSkeleton()
-        {
-            _table = new Table();
-            _eventCounters = new Dictionary<string, List<DataCell>>();
-
-            foreach (var eventSource in _config.EventSources)
-            {
-                // add one row for each counter we want to monitor
-                foreach (var eventCounter in eventSource.EventCounters)
-                {
-                    var eventCounterRow = new List<DataCell>();
-                    foreach (var column in _config.Columns)
-                    {
-                        DataCell dataCell;
-                        if (column.Name == "Name")
-                        {
-                            dataCell = new DataCell(eventCounter, column.Width);
-                        }
-                        else
-                        {
-                            dataCell = new DataCell(string.Empty, column.Width);
-                        }
-                        eventCounterRow.Add(dataCell);
-                    }
-                    _table.Rows.Add(eventCounterRow);
-
-                    var key = $"{eventSource.Name}-{eventCounter}";
-                    _eventCounters.Add(key, eventCounterRow);
-                }
-            }
-        }
-
         static void DrawTable()
         {
-            var tbl = new Table();
-            AddTableHeader(tbl);
-            AddTableDataRows(tbl);
-            DrawTable(tbl);
+            var table = new Table();
+            AddTableHeader(table);
+            AddTableRows(table);
+            DrawTable(table);
         }
 
         static void AddTableHeader(Table table)
@@ -127,6 +92,64 @@ namespace EventCountersConsole
             table.Rows.Add(CreateBorderRow('=', '='));
         }
 
+        static void AddTableRows(Table table)
+        {
+            _eventCounters = new Dictionary<string, List<DataCell>>();
+
+            foreach (var eventSource in _config.EventSources)
+            {
+                // add one row for each counter we want to monitor
+                foreach (var eventCounter in eventSource.EventCounters)
+                {
+                    var dataCells = new List<DataCell>(); // for fast access without border cells
+                    var allsCells = new List<Cell>();
+
+                    for (var i = 0; i < _config.Columns.Count; i++)
+                    {
+                        if (i == 0)
+                        {
+                            allsCells.Add(new BorderCell("|"));
+                        }
+
+                        var column = _config.Columns[i];
+
+                        DataCell dataCell;
+                        if (column.Name == "Name")
+                        {
+                            dataCell = new DataCell(eventCounter, column.Width);
+                        }
+                        else
+                        {
+                            dataCell = new DataCell(string.Empty, column.Width);
+                        }
+
+                        dataCells.Add(dataCell);
+                        allsCells.Add(dataCell);
+                        allsCells.Add(new BorderCell("|"));
+                    }
+                    table.Rows.Add(allsCells);
+                    table.Rows.Add(CreateBorderRow());
+
+                    var key = $"{eventSource.Name}-{eventCounter}";
+                    _eventCounters.Add(key, dataCells);
+                }
+            }
+        }
+
+        static void DrawTable(Table table)
+        {
+            foreach (var row in table.Rows)
+            {
+                foreach (var cell in row)
+                {
+                    cell.Draw(Console.CursorTop, Console.CursorLeft);
+                }
+
+                // Move cursor to next line for drawing
+                Console.WriteLine();
+            }
+        }
+
         static List<Cell> CreateBorderRow(char rowCharacter = '-', char columnCharacter = '|')
         {
             string columnString = null;
@@ -144,39 +167,6 @@ namespace EventCountersConsole
                 borderRow.Add(new BorderCell(columnCharacter.ToString()));
             }
             return borderRow;
-        }
-
-        static void AddTableDataRows(Table tbl)
-        {
-            foreach (var rowCells in _table.Rows)
-            {
-                var dataRow = new List<Cell>();
-                for (var i = 0; i < rowCells.Count(); i++)
-                {
-                    if (i == 0)
-                    {
-                        dataRow.Add(new BorderCell("|"));
-                    }
-                    dataRow.Add(rowCells.ElementAt(i));
-                    dataRow.Add(new BorderCell("|"));
-                }
-                tbl.Rows.Add(dataRow);
-                tbl.Rows.Add(CreateBorderRow());
-            }
-        }
-
-        static void DrawTable(Table table)
-        {
-            foreach (var row in table.Rows)
-            {
-                foreach (var cell in row)
-                {
-                    cell.Draw(Console.CursorTop, Console.CursorLeft);
-                }
-
-                // Move cursor to next line for drawing
-                Console.WriteLine();
-            }
         }
 
         static void RegisterEventListener(TraceEventSession userSession)
